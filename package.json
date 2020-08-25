@@ -1,0 +1,34 @@
+{
+  "name": "rigidcord",
+  "version": "1.0.0",
+  "description": "Discord.JS utility library for making bots.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No test provided.\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rigidity/RigidCord.git"
+  },
+  "keywords": [
+    "bot",
+    "discord",
+    "utility",
+    "helper"
+  ],
+  "author": "Rigidity",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Rigidity/RigidCord/issues"
+  },
+  "peerDependencies": {
+    "discord.js": "12.x"
+  },
+  "homepage": "https://github.com/Rigidity/RigidCord#readme",
+  "dependencies": {
+    "discord.js": "^12.3.1",
+    "emoji-regex": "^9.0.0",
+    "fs-extra": "^9.0.1",
+    "ms": "^2.1.2"
+  }
+}
