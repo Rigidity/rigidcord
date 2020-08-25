@@ -2,11 +2,15 @@ const emojiRegex = require("emoji-regex");
 const path = require("path");
 const Discord = require("discord.js");
 const ms = require('ms');
+const fs = require('fs-extra');
 
 module.exports = bot => {
 	
 	// Main Container
 	const res = {};
+
+	// Simple Files
+	res.fs = {};
 
 	// Discord Conversion
 	res.convert = {};
@@ -22,6 +26,8 @@ module.exports = bot => {
 
 	// Menu System
 	res.menus = {};
+
+	// Active Menus
 	res.menus.active = {};
 
 	// Permission System
@@ -35,6 +41,62 @@ module.exports = bot => {
 
 	// Root User
 	res.perms.root = null;
+
+	res.fs.exists = file => fs.existsSync(file);
+	res.fs.read = file => fs.readFileSync(file, "utf-8");
+	res.fs.write = (file, text) => fs.writeFileSync(file, text, "utf-8");
+	res.fs.create = file => fs.ensureFileSync(file);
+	res.fs.delete = file => fs.removeSync(file);
+	res.fs.load = file => fs.readJsonSync(file);
+	res.fs.save = (file, data) => fs.writeJsonSync(file, data);
+	res.fs.move = (src, dest) => fs.moveSync(src, dest);
+	res.fs.empty = dir => fs.emptyDirSync(dir);
+	res.fs.copy = (src, dest) => fs.copySync(src, dest);
+	res.fs.ensure = dir => fs.ensureDirSync(dir);
+	res.fs.append = (file, text) => fs.writeFileSync(file, fs.readFileSync(file, "utf-8") + text, "utf-8");
+	res.fs.edit = (file, handler) => {
+		const data = fs.readJsonSync(file);
+		const res = handler(data);
+		fs.writeJsonSync(file, data);
+		return res;
+	};
+	res.fs.list = dir => fs.readdirSync(dir);
+	res.fs.base = file => path.basename(file);
+	res.fs.dir = file => path.dirname(file);
+	res.fs.path = (...items) => path.join(...items);
+	res.fs.ext = file => path.extname(file);
+	res.fs.name = file => path.basename(file, path.extname(file));
+	res.fs.file = path => {
+		try {
+			const stat = fs.lstatSync(path);
+			return stat.isDirectory();
+		} catch {
+			return false;
+		}
+	};
+	res.fs.folder = path => {
+		try {
+			const stat = fs.lstatSync(path);
+			return !stat.isDirectory();
+		} catch {
+			return false;
+		}
+	};
+
+	// Page Splitting
+	res.data.splitPages = (items, lines) => {
+		const pages = [[]];
+		for (var i = 0; i < items.length; i++) {
+			pages[pages.length - 1].push(items[i]);
+			if (pages[pages.length - 1].length >= lines) {
+				pages.push([]);
+			}
+		}
+		if (!pages[pages.length - 1].length) {
+			pages.pop();
+		}
+		return pages;
+	}
 
 	// Object Checker
 	res.data.isObject = item => item && typeof item == 'object' && !Array.isArray(item);
@@ -138,6 +200,61 @@ module.exports = bot => {
 		}
 	};
 
+	// Guild Directory
+	res.data.guildFolder = './data/guilds';
+
+	// User Directory
+	res.data.userFolder = './data/users';
+
+	// Guild Data
+	res.data.guildData = {
+		prefix: '!',
+		permissions: {
+			roles: {},
+			users: {},
+			builtins: {}
+		}
+	};
+
+	// User Data
+	res.data.userData = {
+		prefix: '!'
+	};
+
+	// Data Setup
+	res.setup.data = () => {
+		const utils = {
+			guild: (id, data) => {
+				res.fs.ensure(res.data.guildFolder);
+				const loc = res.fs.path(res.data.guildFolder, id + '.json');
+				if (data === undefined) {
+					if (!res.fs.exists(loc)) {
+						res.fs.save(loc, res.data.guildData);
+					}
+					return res.data.merge(res.data.guildData, res.fs.load(loc));
+				} else {
+					res.fs.save(loc, data);
+				}
+			},
+			user: (id, data) => {
+				res.fs.ensure(res.data.userFolder);
+				const loc = res.fs.path(res.data.userFolder, id + '.json');
+				if (data === undefined) {
+					if (!res.fs.exists(loc)) {
+						res.fs.save(loc, res.data.userData);
+					}
+					return res.data.merge(res.data.userData, res.fs.load(loc));
+				} else {
+					res.fs.save(loc, data);
+				}
+			}
+		};
+		res.commands.fetchBuiltinPerms = (item, ctx) => ctx.guild ? utils.guild(ctx.guild).permissions.builtins[item] : undefined;
+		res.commands.fetchRolePerms = (item, ctx) => ctx.guild ? utils.guild(ctx.guild).permissions.roles[item] : undefined;
+		res.commands.fetchUserPerms = (item, ctx) => ctx.guild ? utils.guild(ctx.guild).permissions.users[item] : undefined;
+		return utils;
+	};
+
 	// Command Setup
 	res.setup.commands = () => {
 		bot.on("message", async msg => {
@@ -184,23 +301,39 @@ module.exports = bot => {
 							warn: (...args) => msg.channel.send(res.embed.warn(...args)),
 							info: (...args) => msg.channel.send(res.embed.info(...args)),
 							menu: (...args) => msg.channel.send(res.embed.menu(...args)),
-							box: (...args) => msg.channel.send(res.embed.box(...args))
+							box: (...args) => msg.channel.send(res.embed.box(...args)),
+							pages: (...args) => res.menus.send(res.menus.pages(...args), msg.channel, msg.author)
 						};
 						$.permissionLists = [];
 						if ($.member) {
 							$.member.permissions.toArray().forEach(builtin => {
 								if (res.perms.base[builtin] !== undefined) $.permissionLists.push(res.perms.base[builtin]);
 							});
-							/*
 							$.member.permissions.toArray().forEach(builtin => {
-								if ($.data.permissions.builtins[builtin] !== undefined) $.permissionLists.push($.data.permissions.builtins[builtin]);
+								const item = res.commands.fetchBuiltinPerms(builtin, {
+									guild: $.gid,
+									channel: $.cid,
+									user: $.uid
+								});
+								if (item) $.permissionLists.push(item);
 							});
 							$.member.roles.cache.forEach(role => {
-								if ($.data.permissions.roles[role.id] !== undefined) $.permissionLists.push($.data.permissions.roles[role.id]);
+								const item = res.commands.fetchRolePerms(role.id, {
+									guild: $.gid,
+									channel: $.cid,
+									user: $.uid
+								});
+								if (item) $.permissionLists.push(item);
 							});
-							if ($.data.permissions.users[msg.author.id] !== undefined) $.permissionLists.push($.data.permissions.users[msg.author.id]);
-							*/
+							const item = res.commands.fetchUserPerms($.uid, {
+								guild: $.gid,
+								channel: $.cid,
+								user: $.uid
+							});
+							if (item) $.permissionLists.push(item);
 							if ($.guild.ownerID == $.uid || $.root) $.permissionLists.push(['+*']);
+						} else {
+							$.permissionLists.push(['+*']);
 						}
 						$.permissions = res.perms.combine(...$.permissionLists);
 						$.has = perm => {
@@ -235,12 +368,10 @@ module.exports = bot => {
 							}
 						}
 						$.permit = $.root || !$.missing.length;
-						if (!$.permit) {
-							if ($.needed === null) {
-								$.no('Restricted Access', 'You must be the bot developer to execute this command.');
-							} else {
-								$.no("Missing Permissions", `You are missing the following permissions: ${$.missing.map(item => "`" + item + "`").join(", ")}`);
-							}
+						if ($.needed === null && !$.root) {
+							$.no('Restricted Access', 'You must be the bot developer to execute this command.');
+						} else if (!$.permit) {
+							$.no("Missing Permissions", `You are missing the following permissions: ${$.missing.map(item => "`" + item + "`").join(", ")}`);
 						} else if (command.scope === true && !$.guild) {
 							$.no('Scope Error', 'You may only execute this command on a server.');
 						} else if (command.scope === false && $.guild) {
@@ -249,7 +380,7 @@ module.exports = bot => {
 							let allowed = true;
 							if ($.uid in command.delays) {
 								const passed = $.time - command.delays[$.uid];
-								if (passed < command.delay) {
+								if (passed < command.delay && !$.root) {
 									$.no('Command Cooldown', `You must wait another ${ms(command.delay - passed)} before executing this command.`);
 									allowed = false;
 								}
@@ -401,7 +532,7 @@ module.exports = bot => {
 			usage = '',
 			delay = 1000,
 			perms = [],
-			scope = null,
+			scope = true,
 			run = async () => {}
 		} = {}) {
 			this.name = name;
@@ -467,6 +598,15 @@ module.exports = bot => {
 	// Prefix Fetcher
 	res.commands.fetchPrefix = async () => res.commands.prefix;
 
+	// Role Permissions
+	res.commands.fetchRolePerms = () => undefined;
+
+	// Builtin Permissions
+	res.commands.fetchBuiltinPerms = undefined;
+
+	// User Permissions
+	res.commands.fetchUserPerms = () => undefined;
+
 	// Default Icons
 	res.embed.icon = name => path.join(__dirname, 'icons', name + '.png');
 	
@@ -520,9 +660,9 @@ module.exports = bot => {
 		}
 		let res = prefix + text + suffix;
 		if (res.length > size && direction) {
-			res = prefix + text.slice(0, size - overflow.length) + overflow + suffix;
+			res = prefix + text.slice(0, size - overflow.length - prefix.length - suffix.length) + overflow + suffix;
 		} else if (res.length > size) {
-			res = prefix + overflow + text.slice(overflow.length, size) + suffix;
+			res = prefix + overflow + text.slice(overflow.length + prefix.length + suffix.length, size) + suffix;
 		}
 		if (res.length > size && direction) {
 			res = res.slice(0, size);
