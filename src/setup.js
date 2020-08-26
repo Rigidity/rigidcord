@@ -143,6 +143,24 @@ res.commands = bot => {
 						});
 						if (item) $.permissionLists.push(item);
 						if ($.guild.ownerID == $.uid || $.root) $.permissionLists.push(['+*']);
+						$.ensure = perm => {
+							if (!$.guild.me.hasPermission(perm)) {
+								if (Array.isArray(perm)) {
+									const need = [];
+									perm.forEach(item => {
+										if (!$.guild.me.hasPermission(item)) {
+											need.push(item);
+										}
+									});
+									$.no('Permission Error', `You are missing the following permissions: ${need.map(item => '`' + item + '`').join(', ')}`);
+								} else {
+									$.no('Permission Error', `You are missing the `${perm}` permission.`);
+								}
+								return true;
+							} else {
+								return false;
+							}
+						};
 					} else {
 						$.permissionLists.push(['+*']);
 					}
