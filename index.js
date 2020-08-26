@@ -304,6 +304,11 @@ module.exports = bot => {
 							box: (...args) => msg.channel.send(res.embed.box(...args)),
 							pages: (...args) => res.menus.send(res.menus.pages(...args), msg.channel, msg.author)
 						};
+						$.texts = [text];
+						for (var i = 0; i < args.length; i++) {
+							text = text.slice(args[i].length);
+							$.texts.push(text);
+						}
 						$.permissionLists = [];
 						if ($.member) {
 							$.member.permissions.toArray().forEach(builtin => {
