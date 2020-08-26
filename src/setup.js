@@ -154,7 +154,7 @@ res.commands = bot => {
 									});
 									$.no('Permission Error', `You are missing the following permissions: ${need.map(item => '`' + item + '`').join(', ')}`);
 								} else {
-									$.no('Permission Error', `You are missing the `${perm}` permission.`);
+									$.no('Permission Error', `You are missing the \`${perm}\` permission.`);
 								}
 								return true;
 							} else {
