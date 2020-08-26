@@ -1,6 +1,6 @@
 {
   "name": "rigidcord",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Discord.JS utility library for making bots.",
   "main": "index.js",
   "scripts": {
