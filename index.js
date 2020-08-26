@@ -306,7 +306,7 @@ module.exports = bot => {
 						};
 						$.texts = [text];
 						for (var i = 0; i < args.length; i++) {
-							text = text.slice(args[i].length);
+							text = text.slice(args[i].length).trim();
 							$.texts.push(text);
 						}
 						$.permissionLists = [];
